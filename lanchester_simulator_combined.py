@@ -1,4 +1,4 @@
-"""兰彻斯特仿真合集。Python 3.10+，仅使用标准库。"""
+"""Lanchester Simulator. Python 3.10+ with the standard library only."""
 
 from __future__ import annotations
 
@@ -9,13 +9,13 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 
-LINEAR = "线性律（图示恒定损耗）"
-SQUARE = "Lanchester 平方律"#Lanchester 平方律
-BG = "#edf5f5"#背景色
-PANEL = "#ffffff"#面板色
-INK = "#17394b"#墨水色
-MUTED = "#617d89"# muted 颜色
-RED = "#d94e58"#红色
+LINEAR = "Linear Law (Constant Attrition)"
+SQUARE = "Lanchester Square Law"#Lanchester Square Law
+BG = "#edf5f5"#Background color
+PANEL = "#ffffff"#Panel color
+INK = "#17394b"#Text color
+MUTED = "#617d89"# Muted color
+RED = "#d94e58"#Red
 BLUE = "#3375c5"
 
 
@@ -28,22 +28,22 @@ class Parameters:
     horizon: float = 100.0
     model: str = LINEAR
 
-    def validate(self) -> None:#参数验证
+    def validate(self) -> None:#Validate parameters
         for name, value, limit in (
-            ("红方初始兵力", self.red, 1e9),
-            ("蓝方初始兵力", self.blue, 1e9),
-            ("红方损耗系数", self.a, 1e6),
-            ("蓝方损耗系数", self.b, 1e6),
-            ("显示时间上限", self.horizon, 1e9),
+            ("Initial Red force", self.red, 1e9),
+            ("Initial Blue force", self.blue, 1e9),
+            ("Red attrition coefficient", self.a, 1e6),
+            ("Blue attrition coefficient", self.b, 1e6),
+            ("Display time limit", self.horizon, 1e9),
         ):
             if not math.isfinite(value) or value < 0 or value > limit:
-                raise ValueError(f"{name}须为 0 到 {limit:g} 之间的有限数值。")
+                raise ValueError(f"{name} must be a finite number between 0 and {limit:g}.")
             if 0 < value < 1e-9:
-                raise ValueError(f"{name}的非零数值不能小于 1e-9。")
+                raise ValueError(f"{name} must be at least 1e-9 when nonzero.")
         if self.horizon == 0:
-            raise ValueError("显示时间上限必须大于 0。")
+            raise ValueError("The time limit must be greater than zero.")
         if self.model not in (LINEAR, SQUARE):
-            raise ValueError("请选择有效的模型。")
+            raise ValueError("Select a valid model.")
 
 
 @dataclass(frozen=True)
@@ -57,17 +57,17 @@ class Result:
 
 
 def simulate(p: Parameters, sample_count: int = 601) -> Result:
-    """解析求解并采样，在首个兵力归零时停止，避免负兵力。"""
+    """Sample the analytical solution up to the first force reaching zero."""
     p.validate()
     if sample_count < 2:
-        raise ValueError("采样点数量至少为 2。")
+        raise ValueError("At least two samples are required.")
     r, z, a, b = p.red, p.blue, p.a, p.b
     end, rr, bb = math.inf, r, z
-    winner = "僵持"
+    winner = "Stalemate"
 
     if r == 0 or z == 0:
         end = 0.0
-        winner = "平局" if r == z == 0 else ("红方" if r else "蓝方")
+        winner = "Draw" if r == z == 0 else ("Red" if r else "Blue")
     elif p.model == LINEAR:
         tr = r / a if a else math.inf
         tb = z / b if b else math.inf
@@ -75,33 +75,33 @@ def simulate(p: Parameters, sample_count: int = 601) -> Result:
         if math.isfinite(end):
             rr, bb = max(0.0, r - a * end), max(0.0, z - b * end)
             if tr == tb:
-                winner, rr, bb = "平局", 0.0, 0.0
+                winner, rr, bb = "Draw", 0.0, 0.0
             elif tr < tb:
-                winner, rr = "蓝方", 0.0
+                winner, rr = "Blue", 0.0
             else:
-                winner, bb = "红方", 0.0
+                winner, bb = "Red", 0.0
     elif a == 0 and b == 0:
         pass
     elif a == 0:
-        end, winner, bb = z / (b * r), "红方", 0.0
+        end, winner, bb = z / (b * r), "Red", 0.0
     elif b == 0:
-        end, winner, rr = r / (a * z), "蓝方", 0.0
+        end, winner, rr = r / (a * z), "Blue", 0.0
     else:
         x, y = math.sqrt(b) * r, math.sqrt(a) * z
         k = math.sqrt(a) * math.sqrt(b)
         if x == y:
-            winner, rr, bb = "均衡（渐近消耗）", 0.0, 0.0
+            winner, rr, bb = "Balanced (asymptotic attrition)", 0.0, 0.0
         else:
-            # log1p 同时避免接近平衡的除零，以及悬殊兵力下对数相减的消去误差。
+            # log1p avoids division by zero near balance and cancellation for unequal forces.
             end = 0.5 * math.log1p(2 * min(x, y) / abs(x - y)) / k
             if x > y:
-                winner, rr, bb = "红方", math.sqrt((x - y) * (x + y) / b), 0.0
+                winner, rr, bb = "Red", math.sqrt((x - y) * (x + y) / b), 0.0
             else:
-                winner, rr, bb = "蓝方", 0.0, math.sqrt((y - x) * (y + x) / a)
+                winner, rr, bb = "Blue", 0.0, math.sqrt((y - x) * (y + x) / a)
 
     stop = min(end, p.horizon)
 
-    def state(t: float) -> tuple[float, float]:#定义状态函数
+    def state(t: float) -> tuple[float, float]:#Evaluate force levels at time t
         if t == 0:
             return r, z
         if math.isfinite(end) and t >= end:
@@ -115,15 +115,15 @@ def simulate(p: Parameters, sample_count: int = 601) -> Result:
         k = math.sqrt(a) * math.sqrt(b)
         if not math.isfinite(end):
             return r * math.exp(-k * t), z * math.exp(-k * t)
-        # 从结束状态向前重建，避免两大数相减导致弱势一方提前变成 0。
+        # Work backward from the final state to avoid cancellation that can zero out the weaker force early.
         u = k * (end - t)
-        if winner == "红方":
+        if winner == "Red":
             red = rr * math.cosh(u)
             blue = rr * math.sqrt(b / a) * math.sinh(u)
         else:
             red = bb * math.sqrt(a / b) * math.sinh(u)
             blue = bb * math.cosh(u)
-        # 浮点误差不能让剩余兵力超出初始值。
+        # Clamp rounding errors to keep force levels within their initial bounds.
         return (
             min(r, max(0.0, red)),
             min(z, max(0.0, blue)),
@@ -134,12 +134,12 @@ def simulate(p: Parameters, sample_count: int = 601) -> Result:
     return Result(p, winner, end, rr, bb, samples)
 
 
-def number(value: float) -> str:#定义数字格式化函数
-    if math.isinf(value):#判断是否为无穷大
-        return "∞（无有限终点）"
-    if value != 0 and (abs(value) < 0.001 or abs(value) >= 1e7):#判断是否为科学计数法
-        return f"{value:.5g}"#返回科学计数法表示
-    return f"{value:,.4f}".rstrip("0").rstrip(".")#返回带千分位分隔符的浮点数表示
+def number(value: float) -> str:#Format a numeric result
+    if math.isinf(value):#Check for infinity
+        return "∞ (no finite end time)"
+    if value != 0 and (abs(value) < 0.001 or abs(value) >= 1e7):#Use compact formatting for very small or large values
+        return f"{value:.5g}"#Format with five significant digits
+    return f"{value:,.4f}".rstrip("0").rstrip(".")#Use thousands separators and omit trailing zeros
 
 
 class TwoForcePage(tk.Frame):
@@ -160,7 +160,7 @@ class TwoForcePage(tk.Frame):
         self._build()
         self.run_simulation(animate=False)
 
-    def _styles(self) -> None:#定义界面样式
+    def _styles(self) -> None:#Set widget styles
         self.option_add("*Font", ("Microsoft YaHei UI", 10))
         style = ttk.Style(self)
         style.theme_use("clam")
@@ -175,24 +175,24 @@ class TwoForcePage(tk.Frame):
         kwargs.setdefault("fg", INK)
         return tk.Label(parent, text=text, **kwargs)
 
-    def _build(self) -> None:#定义界面布局
+    def _build(self) -> None:#Build the interface
         header = tk.Frame(self, bg="#173e52", padx=26, pady=18)
         header.pack(fill="x")
-        self.label(header, "Lanchester 方程", bg="#173e52", fg="white",
+        self.label(header, "Lanchester Equations", bg="#173e52", fg="white",
                    font=("Microsoft YaHei UI", 23, "bold")).pack(anchor="w")
-        self.label(header, "兵力对抗仿真  /  LINEAR & SQUARE LAW", bg="#173e52",
+        self.label(header, "Force Attrition Simulation / Linear and Square Laws", bg="#173e52",
                    fg="#b8d9e4", font=("Microsoft YaHei UI", 10)).pack(anchor="w", pady=(5, 0))
 
         toolbar = tk.Frame(self, bg=BG, padx=24, pady=15)
         toolbar.pack(fill="x")
-        self.label(toolbar, "选择模型", bg=BG).pack(side="left", padx=(0, 10))
+        self.label(toolbar, "Model", bg=BG).pack(side="left", padx=(0, 10))
         combo = ttk.Combobox(toolbar, textvariable=self.model, values=(LINEAR, SQUARE),
                              state="readonly", width=29)
         combo.pack(side="left")
         combo.bind("<<ComboboxSelected>>", lambda _event: self.run_simulation(animate=False))
-        self.label(toolbar, "时间上限", bg=BG).pack(side="left", padx=(24, 10))
+        self.label(toolbar, "Time limit", bg=BG).pack(side="left", padx=(24, 10))
         ttk.Entry(toolbar, textvariable=self.variables["horizon"], width=10).pack(side="left")
-        self.label(toolbar, "t（单位自定）", bg=BG, fg=MUTED).pack(side="left", padx=8)
+        self.label(toolbar, "t (chosen units)", bg=BG, fg=MUTED).pack(side="left", padx=8)
 
         body = tk.Frame(self, bg=BG)
         body.pack(fill="both", expand=True, padx=24)
@@ -203,40 +203,40 @@ class TwoForcePage(tk.Frame):
         plot.grid(row=0, column=0, sticky="nsew", padx=(0, 16))
         plot_header = tk.Frame(plot, bg=PANEL)
         plot_header.pack(fill="x", padx=8, pady=(0, 5))
-        self.label(plot_header, "兵力随时间变化", font=("Microsoft YaHei UI", 13, "bold")).pack(side="left")
-        self.label(plot_header, "━ 红方", fg=RED).pack(side="right", padx=10)
-        self.label(plot_header, "━ 蓝方", fg=BLUE).pack(side="right")
+        self.label(plot_header, "Force Levels Over Time", font=("Microsoft YaHei UI", 13, "bold")).pack(side="left")
+        self.label(plot_header, "━ Red", fg=RED).pack(side="right", padx=10)
+        self.label(plot_header, "━ Blue", fg=BLUE).pack(side="right")
         self.canvas = tk.Canvas(plot, bg=PANEL, highlightthickness=0, width=570, height=335)
         self.canvas.pack(fill="both", expand=True)
         self.canvas.bind("<Configure>", lambda _event: self.draw_plot())
 
         sidebar = tk.Frame(body, bg=PANEL, padx=18, pady=16)
         sidebar.grid(row=0, column=1, sticky="nsew")
-        self.label(sidebar, "参数设置", font=("Microsoft YaHei UI", 13, "bold")).grid(
+        self.label(sidebar, "Parameters", font=("Microsoft YaHei UI", 13, "bold")).grid(
             row=0, column=0, columnspan=3, sticky="w", pady=(0, 18))
-        for col, text in enumerate(("阵营", "初始兵力", "损耗系数 *")):
+        for col, text in enumerate(("Side", "Initial Force", "Attrition Coefficient *")):
             self.label(sidebar, text, fg=MUTED).grid(row=1, column=col, sticky="w", padx=(0, 12))
         for row, (name, color, force, rate) in enumerate((
-            ("红方", RED, "red", "a"), ("蓝方", BLUE, "blue", "b")
+            ("Red", RED, "red", "a"), ("Blue", BLUE, "blue", "b")
         ), start=2):
             self.label(sidebar, name, fg=color, font=("Microsoft YaHei UI", 11, "bold")).grid(
                 row=row, column=0, sticky="w", pady=9, padx=(0, 14))
             ttk.Entry(sidebar, textvariable=self.variables[force], width=10).grid(row=row, column=1, padx=(0, 12))
             ttk.Entry(sidebar, textvariable=self.variables[rate], width=10).grid(row=row, column=2)
-        self.label(sidebar, "* 系数表示该方所受损耗。红方为 a，蓝方为 b。\n  系数越大，该方损耗越快；允许为 0。",
+        self.label(sidebar, "* a is the Red attrition coefficient and b is the Blue coefficient.\n  Higher values mean faster losses. Zero is allowed.",
                    fg=MUTED, justify="left", font=("Microsoft YaHei UI", 9)).grid(
             row=4, column=0, columnspan=3, sticky="w", pady=(3, 16))
         ttk.Separator(sidebar).grid(row=5, column=0, columnspan=3, sticky="ew", pady=4)
-        self.label(sidebar, "理论战斗结果", font=("Microsoft YaHei UI", 13, "bold")).grid(
+        self.label(sidebar, "Predicted Outcome", font=("Microsoft YaHei UI", 13, "bold")).grid(
             row=6, column=0, columnspan=3, sticky="w", pady=(15, 9))
         for row, (title, key, color) in enumerate((
-            ("胜方 / 状态", "winner", INK), ("战斗时间", "time", INK),
-            ("红方剩余", "red", RED), ("蓝方剩余", "blue", BLUE)
+            ("Winner / status", "winner", INK), ("Battle duration", "time", INK),
+            ("Red remaining", "red", RED), ("Blue remaining", "blue", BLUE)
         ), start=7):
             self.label(sidebar, title, fg=MUTED).grid(row=row, column=0, columnspan=2, sticky="w", pady=6)
             self.label(sidebar, textvariable=self.summary[key], fg=color,
                        font=("Microsoft YaHei UI", 10, "bold")).grid(row=row, column=1, columnspan=2, sticky="e", pady=6)
-        self.label(sidebar, "结果按模型推算；曲线仅显示设定的时间范围。\n均衡平方律的剩余兵力为 t → ∞ 时的极限。",
+        self.label(sidebar, "The chart shows the selected time range.\nFor a balanced square-law case, remaining forces are the limits as t → ∞.",
                    fg=MUTED, justify="left", font=("Microsoft YaHei UI", 9)).grid(
             row=11, column=0, columnspan=3, sticky="sw", pady=(14, 0))
         sidebar.rowconfigure(11, weight=1)
@@ -249,19 +249,19 @@ class TwoForcePage(tk.Frame):
 
         bottom = tk.Frame(self, bg=BG)
         bottom.pack(fill="x", padx=24, pady=(0, 20))
-        ttk.Button(bottom, text="Simulation · 开始仿真", style="Primary.TButton",
+        ttk.Button(bottom, text="Run Simulation", style="Primary.TButton",
                    command=self.run_simulation).pack(side="left", padx=(0, 10))
-        self.pause_button = ttk.Button(bottom, text="暂停", command=self.toggle_pause, state="disabled")
+        self.pause_button = ttk.Button(bottom, text="Pause", command=self.toggle_pause, state="disabled")
         self.pause_button.pack(side="left", padx=(0, 10))
-        ttk.Button(bottom, text="恢复示例", command=self.reset).pack(side="left", padx=(0, 10))
-        ttk.Button(bottom, text="导出 CSV", command=self.export_csv).pack(side="left")
-        ttk.Button(bottom, text="关闭", command=self.on_close).pack(side="right")
+        ttk.Button(bottom, text="Reset Example", command=self.reset).pack(side="left", padx=(0, 10))
+        ttk.Button(bottom, text="Export CSV", command=self.export_csv).pack(side="left")
+        ttk.Button(bottom, text="Close", command=self.on_close).pack(side="right")
 
     def read_parameters(self) -> Parameters:
         try:
             values = {key: float(var.get().strip()) for key, var in self.variables.items()}
         except ValueError as exc:
-            raise ValueError("请在兵力、损耗系数和时间上限中输入有效数字。") from exc
+            raise ValueError("Enter valid numbers for force levels, attrition coefficients, and the time limit.") from exc
         return Parameters(**values, model=self.model.get())
 
     def cancel_animation(self) -> None:
@@ -274,7 +274,7 @@ class TwoForcePage(tk.Frame):
         try:
             result = simulate(self.read_parameters())
         except ValueError as exc:
-            messagebox.showerror("输入有误", str(exc), parent=self)
+            messagebox.showerror("Invalid Input", str(exc), parent=self)
             return
         self.cancel_animation()
         self.result = result
@@ -283,13 +283,13 @@ class TwoForcePage(tk.Frame):
         self.summary["red"].set(number(result.red_remaining))
         self.summary["blue"].set(number(result.blue_remaining))
         if result.parameters.model == LINEAR:
-            self.formula.set("图示线性模式：dR/dt = −a，dB/dt = −b。双方兵力匀速下降，一方归零即停止。")
+            self.formula.set("Linear law: dR/dt = −a, dB/dt = −b. Both forces decline at constant rates until one reaches zero.")
         else:
-            self.formula.set("平方律：dR/dt = −aB，dB/dt = −bR。守恒量：bR² − aB²；一方归零即停止。")
+            self.formula.set("Square law: dR/dt = −aB, dB/dt = −bR. The quantity bR² − aB² is conserved until one force reaches zero.")
         self.visible_count = 1 if animate else len(result.samples)
         self.draw_plot()
         self.running = animate and len(result.samples) > 1
-        self.pause_button.configure(text="暂停", state="normal" if self.running else "disabled")
+        self.pause_button.configure(text="Pause", state="normal" if self.running else "disabled")
         if self.running:
             self.tick()
         else:
@@ -306,27 +306,27 @@ class TwoForcePage(tk.Frame):
             self.after_id = self.after(30, self.tick)
         else:
             self.running = False
-            self.pause_button.configure(state="disabled", text="暂停")
+            self.pause_button.configure(state="disabled", text="Pause")
 
     def update_status(self) -> None:
         if self.result is None:
             return
         t, r, b = self.result.samples[self.visible_count - 1]
-        prefix = "仿真中" if self.visible_count < len(self.result.samples) else "显示完成"
+        prefix = "Simulating" if self.visible_count < len(self.result.samples) else "Plot complete"
         if self.visible_count == len(self.result.samples) and t < self.result.end_time:
-            prefix += " · 已到时间上限，战斗尚未结束"
-        self.status.set(f"{prefix}    t = {number(t)}    红方 = {number(r)}    蓝方 = {number(b)}")
+            prefix += " · Time limit reached before the battle ended"
+        self.status.set(f"{prefix}    t = {number(t)}    Red = {number(r)}    Blue = {number(b)}")
 
     def toggle_pause(self) -> None:
         if self.result is None or self.visible_count >= len(self.result.samples):
             return
         if self.running:
             self.cancel_animation()
-            self.pause_button.configure(text="继续")
-            self.status.set(self.status.get().replace("仿真中", "已暂停", 1))
+            self.pause_button.configure(text="Resume")
+            self.status.set(self.status.get().replace("Simulating", "Paused", 1))
         else:
             self.running = True
-            self.pause_button.configure(text="暂停")
+            self.pause_button.configure(text="Pause")
             self.tick()
 
     def draw_plot(self) -> None:
@@ -351,8 +351,8 @@ class TwoForcePage(tk.Frame):
             c.create_text(x, bottom + 17, text=f"{p.horizon * i / 5:.4g}", font=font, fill=MUTED)
             c.create_text(left - 10, y, text=f"{ymax * i / 5:.4g}", anchor="e", font=font, fill=MUTED)
         c.create_line(left, top, left, bottom, right, bottom, fill="#9bb0ba", width=1.5)
-        c.create_text(left, 10, text="兵力", anchor="w", fill=MUTED, font=font)
-        c.create_text((left + right) / 2, h - 10, text="时间 t", fill=MUTED, font=font)
+        c.create_text(left, 10, text="Force Level", anchor="w", fill=MUTED, font=font)
+        c.create_text((left + right) / 2, h - 10, text="Time t", fill=MUTED, font=font)
         points = self.result.samples[:self.visible_count]
         for column, color in ((1, RED), (2, BLUE)):
             coords = [n for point in points for n in xy(point[0], point[column])]
@@ -376,23 +376,23 @@ class TwoForcePage(tk.Frame):
         if self.result is None:
             return
         path = filedialog.asksaveasfilename(
-            parent=self, title="导出当前仿真数据", defaultextension=".csv",
-            initialfile="lanchester_simulation.csv", filetypes=[("CSV 文件", "*.csv")],
+            parent=self, title="Export Simulation Data", defaultextension=".csv",
+            initialfile="lanchester_simulation.csv", filetypes=[("CSV files", "*.csv")],
         )
         if not path:
             return
         try:
             export_result(self.result, path)
         except OSError as exc:
-            messagebox.showerror("导出失败", str(exc), parent=self)
+            messagebox.showerror("Export Failed", str(exc), parent=self)
         else:
-            self.status.set("当前曲线的完整采样数据已导出（对应上次点击仿真的参数）。")
+            self.status.set("Exported all samples from the most recent simulation run.")
 
 def export_result(result: Result, path: str) -> None:
-    """UTF-8 BOM 编码便于 Excel 打开中文表头；导出当前仿真完整数据。"""
+    """Export all samples as UTF-8 with a BOM for Excel compatibility."""
     with open(path, "w", encoding="utf-8-sig", newline="") as stream:
         writer = csv.writer(stream)
-        writer.writerow(("时间 t", "红方剩余兵力 R", "蓝方剩余兵力 B"))
+        writer.writerow(("Time t", "Remaining Red force R", "Remaining Blue force B"))
         writer.writerows(result.samples)
 
 
@@ -435,7 +435,7 @@ def simulate_three_forces(
     dt: float = 0.01,
     max_time: float = 500.0,
 ) -> tuple[list[tuple[float, float, float, float]], str]:
-    """使用 RK4 积分，返回 (时间, 红方, 蓝A, 蓝B) 时间序列和结局说明。"""
+    """Use RK4 to return (time, Red, Blue A, Blue B) samples and the outcome."""
     state = (p.red, p.blue_a, p.blue_b)
     t = 0.0
     rows = [(t, *state)]
@@ -474,15 +474,15 @@ def simulate_three_forces(
     if rows[-1][0] != t:
         rows.append((t, *state))
     if t >= max_time and max(state) > 1e-8:
-        outcome = "达到仿真时限（兵力未归零）"
+        outcome = "Time limit reached with forces remaining"
     elif max(state) <= 1e-8:
-        outcome = "双方均失去战斗力"
+        outcome = "Mutual depletion"
     elif state[0] > 1e-8:
-        outcome = "红方胜利"
+        outcome = "Red wins"
     elif state[1] > 1e-8 or state[2] > 1e-8:
-        outcome = "蓝方胜利"
+        outcome = "Blue wins"
     else:
-        outcome = "战斗结束"
+        outcome = "Battle ended"
     return rows, outcome
 
 
@@ -511,11 +511,11 @@ class Chart(tk.Canvas):
         w, h = max(self.winfo_width(), 240), max(self.winfo_height(), 180)
         self.create_text(w / 2, 18, text=self.title, font=("Microsoft YaHei UI", 12, "bold"), fill="#243247")
         if not self.data:
-            self.create_text(w / 2, h / 2, text="输入参数后点击“开始仿真”", fill="#718096", font=("Microsoft YaHei UI", 10))
+            self.create_text(w / 2, h / 2, text="Enter the parameters and select Run Simulation", fill="#718096", font=("Microsoft YaHei UI", 10))
             return
 
         if len(self.data) == 1:
-            names = ("红方", "蓝方 A", "蓝方 B")
+            names = ("Red", "Blue A", "Blue B")
             values = self.data[0][1:]
             max_value = max(max(values), 1.0)
             baseline = h - 36
@@ -549,9 +549,9 @@ class Chart(tk.Canvas):
             self.create_text(x, bottom + 15, text=f"{xv:.1f}", fill="#607087", font=("Arial", 8))
         self.create_line(left, top, left, bottom, fill="#9aa8b8")
         self.create_line(left, bottom, right, bottom, fill="#9aa8b8")
-        self.create_text(18, (top + bottom) / 2, text="兵力", angle=90, fill="#526174", font=("Microsoft YaHei UI", 9))
-        self.create_text((left + right) / 2, h - 9, text="时间（小时）", fill="#526174", font=("Microsoft YaHei UI", 9))
-        for index, (name, color) in enumerate(zip(("红方", "蓝方 A", "蓝方 B"), self.COLORS)):
+        self.create_text(18, (top + bottom) / 2, text="Force Level", angle=90, fill="#526174", font=("Microsoft YaHei UI", 9))
+        self.create_text((left + right) / 2, h - 9, text="Time (hours)", fill="#526174", font=("Microsoft YaHei UI", 9))
+        for index, (name, color) in enumerate(zip(("Red", "Blue A", "Blue B"), self.COLORS)):
             y = top + index * 15
             self.create_line(right - 180, y, right - 158, y, fill=color, width=3)
             self.create_text(right - 152, y, text=name, anchor="w", fill="#3c4a5d", font=("Microsoft YaHei UI", 8))
@@ -575,20 +575,20 @@ class ThreeForcePage(tk.Frame):
     def _build_ui(self) -> None:
         header = tk.Frame(self, bg="#183b5b", height=58)
         header.pack(fill="x")
-        tk.Label(header, text="兰彻斯特战损仿真系统", bg="#183b5b", fg="white", font=("Microsoft YaHei UI", 18, "bold")).pack(side="left", padx=22, pady=12)
-        tk.Label(header, text="三兵力模型 · RK4 数值积分", bg="#183b5b", fg="#c8d8e8", font=("Microsoft YaHei UI", 10)).pack(side="right", padx=24)
+        tk.Label(header, text="Lanchester Attrition Simulator", bg="#183b5b", fg="white", font=("Microsoft YaHei UI", 18, "bold")).pack(side="left", padx=22, pady=12)
+        tk.Label(header, text="Three-Force Model · RK4", bg="#183b5b", fg="#c8d8e8", font=("Microsoft YaHei UI", 10)).pack(side="right", padx=24)
 
         body = tk.Frame(self, bg="#eef2f6")
         body.pack(fill="both", expand=True, padx=14, pady=14)
         panel = tk.Frame(body, bg="white", width=340, highlightbackground="#d8e0e8", highlightthickness=1)
         panel.pack(side="left", fill="y", padx=(0, 14))
         panel.pack_propagate(False)
-        tk.Label(panel, text="作战参数设置", bg="white", fg="#26384b", font=("Microsoft YaHei UI", 14, "bold")).pack(anchor="w", padx=18, pady=(18, 10))
+        tk.Label(panel, text="Battle Parameters", bg="white", fg="#26384b", font=("Microsoft YaHei UI", 14, "bold")).pack(anchor="w", padx=18, pady=(18, 10))
 
         groups = [
-            ("初始兵力", [("red", "红方总兵力", 260), ("blue_a", "蓝方 A 兵力", 200), ("blue_b", "蓝方 B 兵力", 60)]),
-            ("毁伤系数（每小时）", [("red_to_a", "红方对 A 毁伤", 0.1), ("red_to_b", "红方对 B 毁伤", 0.5), ("blue_a_to_red", "蓝方 A 对红方毁伤", 0.1), ("blue_b_to_red", "蓝方 B 对红方毁伤", 1.5)]),
-            ("红方火力分配", [("share_a", "分配给 A 的比例", 0.5), ("share_b", "分配给 B 的比例", 0.5)]),
+            ("Initial Force", [("red", "Total Red force", 260), ("blue_a", "Blue A force", 200), ("blue_b", "Blue B force", 60)]),
+            ("Attrition Coefficients (per hour)", [("red_to_a", "Red vs. Blue A", 0.1), ("red_to_b", "Red vs. Blue B", 0.5), ("blue_a_to_red", "Blue A vs. Red", 0.1), ("blue_b_to_red", "Blue B vs. Red", 1.5)]),
+            ("Red Fire Allocation", [("share_a", "Share for Blue A", 0.5), ("share_b", "Share for Blue B", 0.5)]),
         ]
         for group_name, fields in groups:
             tk.Label(panel, text=group_name, bg="white", fg="#41627e", font=("Microsoft YaHei UI", 10, "bold")).pack(anchor="w", padx=18, pady=(8, 3))
@@ -600,15 +600,15 @@ class ThreeForcePage(tk.Frame):
                 self.vars[key] = var
                 tk.Entry(row, textvariable=var, justify="right", relief="solid", bd=1, width=10, font=("Arial", 10)).pack(side="right", ipady=4)
 
-        tk.Button(panel, text="开始仿真", command=self.run, bg="#39a84b", fg="white", activebackground="#2d903d", activeforeground="white", relief="flat", font=("Microsoft YaHei UI", 12, "bold"), cursor="hand2").pack(fill="x", padx=18, pady=(17, 8), ipady=9)
-        tk.Label(panel, text="双方按课件方程计算损耗。\n一个蓝方兵种归零后，红方将火力\n全部转向另一兵种。", justify="left", bg="white").pack(anchor="w", padx=18)
+        tk.Button(panel, text="Run Simulation", command=self.run, bg="#39a84b", fg="white", activebackground="#2d903d", activeforeground="white", relief="flat", font=("Microsoft YaHei UI", 12, "bold"), cursor="hand2").pack(fill="x", padx=18, pady=(17, 8), ipady=9)
+        tk.Label(panel, text="The model computes losses for each force.\nWhen one Blue force reaches zero, Red\nshifts all fire to the remaining force.", justify="left", bg="white").pack(anchor="w", padx=18)
 
         results = tk.Frame(body, bg="#eef2f6")
         results.pack(side="left", fill="both", expand=True)
         cards = tk.Frame(results, bg="#eef2f6")
         cards.pack(fill="x", pady=(0, 12))
         self.kpis: dict[str, tk.Label] = {}
-        for key, title, initial in (("outcome", "仿真结果", "等待仿真"), ("duration", "战斗持续时间", "— 小时"), ("survivors", "战斗结束兵力（红 / 蓝A / 蓝B）", "— / — / —")):
+        for key, title, initial in (("outcome", "Outcome", "Awaiting simulation"), ("duration", "Battle Duration", "— hours"), ("survivors", "Final Forces (Red / Blue A / Blue B)", "— / — / —")):
             card = tk.Frame(cards, bg="white", highlightbackground="#d8e0e8", highlightthickness=1)
             card.pack(side="left", fill="x", expand=True, padx=(0, 8))
             tk.Label(card, text=title, bg="white", fg="#69788b", font=("Microsoft YaHei UI", 8)).pack(anchor="w", padx=12, pady=(9, 1))
@@ -619,53 +619,53 @@ class ThreeForcePage(tk.Frame):
         top = tk.Frame(results, bg="#eef2f6", height=225)
         top.pack(fill="x", pady=(0, 12))
         top.pack_propagate(False)
-        self.initial_chart = Chart(top, "初始兵力对比", bg="white", highlightbackground="#d8e0e8", highlightthickness=1)
+        self.initial_chart = Chart(top, "Initial Force Levels", bg="white", highlightbackground="#d8e0e8", highlightthickness=1)
         self.initial_chart.pack(side="left", fill="both", expand=True, padx=(0, 8))
-        self.final_chart = Chart(top, "战斗结束兵力对比", bg="white", highlightbackground="#d8e0e8", highlightthickness=1)
+        self.final_chart = Chart(top, "Final Force Levels", bg="white", highlightbackground="#d8e0e8", highlightthickness=1)
         self.final_chart.pack(side="left", fill="both", expand=True)
-        self.line_chart = Chart(results, "红蓝双方兵力随时间变化", bg="white", highlightbackground="#d8e0e8", highlightthickness=1)
+        self.line_chart = Chart(results, "Red and Blue Forces Over Time", bg="white", highlightbackground="#d8e0e8", highlightthickness=1)
         self.line_chart.pack(fill="both", expand=True)
-        self.status = tk.Label(self, text="就绪", bg="#e2e9f0", fg="#536477", anchor="w", padx=14, font=("Microsoft YaHei UI", 8))
+        self.status = tk.Label(self, text="Ready", bg="#e2e9f0", fg="#536477", anchor="w", padx=14, font=("Microsoft YaHei UI", 8))
         self.status.pack(fill="x", side="bottom")
 
     def read_input(self) -> BattleInput:
         values = {key: float(var.get().strip()) for key, var in self.vars.items()}
         if not all(math.isfinite(value) for value in values.values()):
-            raise ValueError("参数必须是有限数值。")
+            raise ValueError("Parameters must be finite numbers.")
         p = BattleInput(**values)
         if min(p.red, p.blue_a, p.blue_b) <= 0:
-            raise ValueError("初始兵力必须大于 0。")
+            raise ValueError("Initial force levels must be greater than zero.")
         if min(p.red_to_a, p.red_to_b, p.blue_a_to_red, p.blue_b_to_red) < 0:
-            raise ValueError("毁伤系数不能为负数。")
+            raise ValueError("Attrition coefficients must be nonnegative.")
         if not math.isclose(p.share_a + p.share_b, 1.0, abs_tol=1e-6):
-            raise ValueError("分配给 A、B 的火力比例之和必须等于 1。")
+            raise ValueError("Fire allocation shares for Blue A and Blue B must sum to 1.")
         if not (0 <= p.share_a <= 1 and 0 <= p.share_b <= 1):
-            raise ValueError("火力分配比例应在 0 到 1 之间。")
+            raise ValueError("Fire allocation shares must be between 0 and 1.")
         return p
 
     def run(self) -> None:
         try:
             p = self.read_input()
         except (ValueError, TypeError) as exc:
-            messagebox.showerror("参数有误", str(exc), parent=self)
+            messagebox.showerror("Invalid Parameters", str(exc), parent=self)
             return
         data, outcome = simulate_three_forces(p)
         final = data[-1][1:]
         self.kpis["outcome"].configure(text=outcome)
-        self.kpis["duration"].configure(text=f"{data[-1][0]:.2f} 小时")
+        self.kpis["duration"].configure(text=f"{data[-1][0]:.2f} hours")
         self.kpis["survivors"].configure(text=" / ".join(f"{x:.1f}" for x in final))
         self.initial_chart.set_data([(0, p.red, p.blue_a, p.blue_b)])
         self.final_chart.set_data([(0, *final)])
         self.line_chart.set_data(data)
         red_index, blue_index = combat_indices(p)
-        index_text = f"{blue_index:.1f}" if blue_index is not None else "未定义"
-        self.status.configure(text=f"初始作战指数：红方 {red_index:.1f} / 蓝方 {index_text}")
+        index_text = f"{blue_index:.1f}" if blue_index is not None else "Undefined"
+        self.status.configure(text=f"Initial combat index: Red {red_index:.1f} / Blue {index_text}")
 
 
 class SimulatorApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("兰彻斯特仿真合集")
+        self.title("Lanchester Simulator")
         self.geometry("1320x850")
         self.minsize(1050, 750)
 
@@ -673,8 +673,8 @@ class SimulatorApp(tk.Tk):
         self.tabs.pack(fill="both", expand=True)
         self.two_force = TwoForcePage(self.tabs, self.close)
         self.three_force = ThreeForcePage(self.tabs)
-        self.tabs.add(self.two_force, text="双方兵力 · 线性律 / 平方律")
-        self.tabs.add(self.three_force, text="三兵力 · RK4")
+        self.tabs.add(self.two_force, text="Two Forces · Linear / Square Law")
+        self.tabs.add(self.three_force, text="Three Forces · RK4")
         self.tabs.enable_traversal()
         self.bind("<Return>", self.run_two_force)
         self.protocol("WM_DELETE_WINDOW", self.close)
