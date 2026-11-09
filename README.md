@@ -1,24 +1,24 @@
-# 兰彻斯特仿真合集
+# Lanchester Simulator
 
-使用 Python 和 Tkinter 编写的教学仿真程序。可调整初始兵力、损耗系数和火力分配，观察兵力随时间变化的曲线。
+An educational Python and Tkinter application for exploring Lanchester attrition models. Adjust initial force levels, attrition coefficients, and fire allocation to see how force levels change over time.
 
-## 运行
+## Running the simulator
 
-需要 Python 3.10 或更新版本，以及 Tkinter。无需安装第三方 Python 包。在项目目录中运行以下命令。
+Use Python 3.10 or later with Tkinter. No third-party Python packages are required. From the project directory, run:
 
 ```powershell
 py lanchester_simulator_combined.py
 ```
 
-如果系统使用 `python` 或 `python3` 启动 Python，可用对应命令替换 `py`。
+If your system uses `python` or `python3`, substitute that command for `py`.
 
-## 仿真模式
+## Simulation modes
 
-- **双方兵力**支持线性律（恒定损耗）和兰彻斯特平方律，可导出仿真数据为 CSV。
-- **三兵力**使用四阶龙格–库塔法（RK4）求解。蓝方两个兵种同时参战时，红方按输入比例分配火力。一个蓝方兵种归零后，红方将火力全部转向另一兵种。
+- **Two Forces** supports the linear law (constant attrition) and the Lanchester square law. You can export the simulation data as CSV.
+- **Three Forces** uses the fourth-order Runge–Kutta method (RK4). Red splits its fire between Blue A and Blue B according to the specified shares. When one Blue force reaches zero, Red directs all its fire at the remaining force.
 
-使用默认三兵力参数运行时，蓝方 B 先归零。仿真在约 24.48 个时间单位结束，红方胜利并剩余约 36.66 兵力。
+With the default three-force settings, Blue B reaches zero first. The simulation ends after about 24.48 hours, with Red winning and retaining about 36.66 of its initial force of 260.
 
-## 许可证
+## License
 
-本项目采用 [MIT 许可证](LICENSE)。
+This project is available under the [MIT License](LICENSE).
