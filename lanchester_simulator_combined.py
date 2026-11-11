@@ -7,6 +7,7 @@ import math
 from dataclasses import dataclass
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from expert_assessment import ExpertPage
 
 
 LINEAR = "Linear Law (Constant Attrition)"
@@ -675,6 +676,8 @@ class SimulatorApp(tk.Tk):
         self.three_force = ThreeForcePage(self.tabs)
         self.tabs.add(self.two_force, text="Two Forces · Linear / Square Law")
         self.tabs.add(self.three_force, text="Three Forces · RK4")
+        self.expert = ExpertPage(self.tabs, self.two_force, self.three_force)
+        self.tabs.add(self.expert, text="Expert Assessment")
         self.tabs.enable_traversal()
         self.bind("<Return>", self.run_two_force)
         self.protocol("WM_DELETE_WINDOW", self.close)
